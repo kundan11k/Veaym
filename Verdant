@@ -1,0 +1,197 @@
+// lib/screens/splash_screen.dart
+import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
+
+class SplashScreen extends StatefulWidget {
+  @override
+  _SplashScreenState createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this);
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Navigator.pushReplacementNamed(context, '/home');
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Lottie.asset(
+          'assets/eco_animation.json', // Add Lottie animation file
+          controller: _controller,
+          onLoaded: (composition) {
+            _controller
+              ..duration = composition.duration
+              ..forward();
+          },
+        ),
+      ),
+    );
+  }
+}
+// lib/screens/auth_screen.dart
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+class AuthScreen extends StatelessWidget {
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAuthentication googleAuth = await googleUser!.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await _auth.signInWithCredential(credential);
+    } catch (e) {
+      print("Google sign-in error: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text('Welcome to EcoTracker!', style: Theme.of(context).textTheme.headline4),
+            SizedBox(height: 30),
+            ElevatedButton.icon(
+              icon: Icon(Icons.login),
+              label: Text('Sign In with Google'),
+              onPressed: _signInWithGoogle,
+              style: ElevatedButton.styleFrom(
+                primary: Colors.green,
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+/challenges
+  ├── challengeId
+  │    ├── title: "Bike to Work Week"
+  │    ├── description: "Cycle 20 miles to earn 100 points"
+  │    ├── badge: "🚴♂️ Bike Master"
+  │    └── isActive: true
+
+/badges
+  ├── badgeId
+  │    ├── name: "Eco Warrior"
+  │    ├── icon: "assets/badges/eco_warrior.png"
+  │    └── criteria: "Save 500kg CO2"
+// lib/admin_panel/challenge_editor.dart
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+class ChallengeEditorScreen extends StatefulWidget {
+  @override
+  _ChallengeEditorScreenState createState() => _ChallengeEditorScreenState();
+}
+
+class _ChallengeEditorScreenState extends State<ChallengeEditorScreen> {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
+
+  Future<void> _saveChallenge() async {
+    await _db.collection('challenges').add({
+      'title': _titleController.text,
+      'description': _descController.text,
+      'isActive': true,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Create Challenge')),
+      body: Padding(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          children: [
+            TextField(controller: _titleController, decoration: InputDecoration(labelText: 'Title')),
+            TextField(controller: _descController, decoration: InputDecoration(labelText: 'Description')),
+            ElevatedButton(
+              onPressed: _saveChallenge,
+              child: Text('Save Challenge'),
+              style: ElevatedButton.styleFrom(primary: Colors.green),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+// lib/widgets/progress_bar.dart
+import 'package:flutter/material.dart';
+
+class AnimatedProgressBar extends ImplicitlyAnimatedWidget {
+  final double progress;
+
+  AnimatedProgressBar({required this.progress}) : super(duration: Duration(seconds: 1));
+
+  @override
+  ImplicitlyAnimatedWidgetState<ImplicitlyAnimatedWidget> createState() => _AnimatedProgressBarState();
+}
+
+class _AnimatedProgressBarState extends AnimatedWidgetBaseState<AnimatedProgressBar> {
+  Tween<double>? _progressTween;
+
+  @override
+  void forEachTween(TweenVisitor<dynamic> visitor) {
+    _progressTween = visitor(_progressTween, widget.progress, (value) => Tween<double>(begin: value)) as Tween<double>;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LinearProgressIndicator(
+      value: _progressTween?.evaluate(animation) ?? 0,
+      backgroundColor: Colors.grey[200],
+      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+    );
+  }
+}
+// firestore.rules
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /challenges/{challenge} {
+      allow read: if true;
+      allow write: if request.auth.token.admin == true; // Only admins can edit
+    }
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+  }
+}
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^2.15.0
+  cloud_firestore: ^4.9.0
+  firebase_auth: ^4.7.0
+  google_sign_in: ^6.1.0
+  lottie: ^2.5.0
+  flutter_animate: ^4.1.1
+  geolocator: ^10.0.0
+  http: ^0.13.5
